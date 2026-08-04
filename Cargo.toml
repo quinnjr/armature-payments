@@ -1,12 +1,12 @@
 [package]
 name = "armature-payments"
 version = "0.3.0"
-edition.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-license.workspace = true
+edition = "2024"
+rust-version = "1.94.1"
+authors = ["Joseph Quinn <quinn.josephr@proton.me>"]
+license = "Apache-2.0"
 repository = "https://github.com/quinnjr/armature-payments"
-homepage.workspace = true
+homepage = "https://quinnjr.github.io/armature"
 description = "Payment processing with Stripe, PayPal, and Braintree for Armature framework"
 keywords = ["payments", "stripe", "paypal", "braintree", "ecommerce"]
 categories = ["web-programming", "api-bindings"]
@@ -15,7 +15,7 @@ categories = ["web-programming", "api-bindings"]
 # NOTE: `armature-core` was declared here but referenced nowhere in `src/` or
 # `tests/`; it has been removed rather than left to pull ~140 transitive crates
 # into every build of this crate.
-armature-log = { path = "../armature-log", version = "0" }
+armature-log = { version = "0" }
 tokio = { version = "1.52", features = ["rt-multi-thread", "sync", "time"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
