@@ -1247,8 +1247,11 @@ fn parse_notification_xml(xml: &[u8]) -> PaymentResult<BraintreeNotification> {
     use quick_xml::Reader;
     use quick_xml::events::Event;
 
+    // Text trimming is deliberately left off: since quick-xml 0.38 the reader
+    // splits text at every entity reference and trims each fragment on its
+    // own, which would drop the spaces in `a &amp; b`. `read_element` trims
+    // each whole text run itself instead.
     let mut reader = Reader::from_reader(xml);
-    reader.config_mut().trim_text(true);
 
     let mut buf = Vec::new();
     // Walk to the root <notification> element, skipping the XML declaration.
@@ -1309,12 +1312,32 @@ fn parse_notification_xml(xml: &[u8]) -> PaymentResult<BraintreeNotification> {
 }
 
 /// Strip any namespace prefix from an XML tag name.
-fn local_name(raw: &[u8]) -> String {
-    let name = String::from_utf8_lossy(raw);
+fn local_name(name: &str) -> String {
     match name.rsplit_once(':') {
         Some((_, local)) => local.to_string(),
-        None => name.into_owned(),
+        None => name.to_string(),
     }
+}
+
+/// Finish one run of character data: trim XML whitespace from both ends of
+/// the still-escaped run, then resolve its entity and character references.
+///
+/// A run is the text between two pieces of markup, entity references
+/// included. Trimming happens before unescaping, so whitespace written as a
+/// character reference (`&#32;`) survives.
+fn flush_text_run(run: &mut String, text: &mut String) -> PaymentResult<()> {
+    if run.is_empty() {
+        return Ok(());
+    }
+    let trimmed = run.trim_matches(|c| matches!(c, ' ' | '\r' | '\n' | '\t'));
+    let decoded = quick_xml::escape::unescape(trimmed).map_err(|err| {
+        PaymentError::Serialization(format!(
+            "malformed text in Braintree notification XML: {err}"
+        ))
+    })?;
+    text.push_str(&decoded);
+    run.clear();
+    Ok(())
 }
 
 /// Read the children of the element the reader has just entered, converting the
@@ -1339,11 +1362,17 @@ fn read_element(
     }
 
     let mut text = String::new();
+    // Escaped text collected since the last piece of markup; see `flush_text_run`.
+    let mut run = String::new();
     let mut children: Vec<(String, Value)> = Vec::new();
     let mut buf = Vec::new();
 
     loop {
-        match reader.read_event_into(&mut buf) {
+        let event = reader.read_event_into(&mut buf);
+        if !matches!(event, Ok(Event::Text(_) | Event::GeneralRef(_))) {
+            flush_text_run(&mut run, &mut text)?;
+        }
+        match event {
             Ok(Event::Start(e)) => {
                 let name = local_name(e.name().as_ref());
                 let (child_nil, child_array) = element_hints(&e);
@@ -1362,17 +1391,13 @@ fn read_element(
                 };
                 children.push((name, value));
             }
-            Ok(Event::Text(e)) => {
-                let decoded = e.unescape().map_err(|err| {
-                    PaymentError::Serialization(format!(
-                        "malformed text in Braintree notification XML: {err}"
-                    ))
-                })?;
-                text.push_str(&decoded);
+            Ok(Event::Text(e)) => run.push_str(&e),
+            Ok(Event::GeneralRef(e)) => {
+                run.push('&');
+                run.push_str(&e);
+                run.push(';');
             }
-            Ok(Event::CData(e)) => {
-                text.push_str(&String::from_utf8_lossy(&e));
-            }
+            Ok(Event::CData(e)) => text.push_str(&e),
             Ok(Event::End(_)) => break,
             Ok(Event::Eof) => {
                 return Err(PaymentError::Serialization(
@@ -1426,8 +1451,8 @@ fn element_hints(e: &quick_xml::events::BytesStart<'_>) -> (bool, bool) {
     let mut is_array = false;
     for attr in e.attributes().flatten() {
         match attr.key.as_ref() {
-            b"nil" => nil = attr.value.as_ref() == b"true",
-            b"type" => is_array = attr.value.as_ref() == b"array",
+            "nil" => nil = attr.value == "true",
+            "type" => is_array = attr.value == "array",
             _ => {}
         }
     }
@@ -1767,6 +1792,27 @@ mod tests {
         let parsed = parse_notification_xml(xml).unwrap();
         assert_eq!(parsed.subject["items"]["item"][0], "a");
         assert_eq!(parsed.subject["items"]["item"][1], "b");
+    }
+
+    #[test]
+    fn text_trims_whole_runs_and_resolves_references() {
+        let xml = b"<notification><kind>check</kind><subject>\
+            <name>\n  Tom &amp; Jerry  \n</name>\
+            <quoted>&lt;&#x41;&#66;&gt;</quoted>\
+            <spaced>&#32;x&#32;</spaced>\
+            <mixed> a <![CDATA[ <raw> ]]> b </mixed>\
+            </subject></notification>";
+        let parsed = parse_notification_xml(xml).unwrap();
+        assert_eq!(parsed.subject["name"], "Tom & Jerry");
+        assert_eq!(parsed.subject["quoted"], "<AB>");
+        assert_eq!(parsed.subject["spaced"], " x ");
+        assert_eq!(parsed.subject["mixed"], "a <raw> b");
+    }
+
+    #[test]
+    fn unknown_entity_is_an_error() {
+        let xml = b"<notification><kind>&bogus;</kind></notification>";
+        assert!(parse_notification_xml(xml).is_err());
     }
 
     #[test]
