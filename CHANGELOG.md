@@ -14,6 +14,10 @@ Earlier changes are recorded in the workspace [`CHANGELOG.md`](../CHANGELOG.md).
 - **Breaking:** `Money::from_decimal`/`from_float` are deprecated and now panic rather than returning zero. An amount that did not round-trip through `i64` silently became a charge of nothing, reported as success; `try_from_decimal`/`try_from_float` are the fallible replacements.
 - `Price::is_on_sale`/`discount_percent` check currency before comparing minor units.
 
+### Changed
+
+- Dependencies upgraded: `quick-xml` 0.42, `base64` 0.23, `tokio` 1.53, `uuid` 1.26, `rust_decimal` 1.43. The Braintree webhook XML parser now handles the separate entity-reference events that quick-xml 0.42 emits. Each text run is still trimmed as a whole and then unescaped, so `a &amp; b` keeps its spaces and unknown entities are still rejected.
+
 ## [0.3.1] - 2026-08-04
 
 ### Fixed
