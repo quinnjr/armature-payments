@@ -1,12 +1,12 @@
 [package]
 name = "armature-payments"
-version = "0.3.0"
-edition.workspace = true
-rust-version.workspace = true
-authors.workspace = true
-license.workspace = true
+version = "0.3.2"
+edition = "2024"
+rust-version = "1.94.1"
+authors = ["Joseph Quinn <quinn.josephr@proton.me>"]
+license = "Apache-2.0"
 repository = "https://github.com/quinnjr/armature-payments"
-homepage.workspace = true
+homepage = "https://quinnjr.github.io/armature"
 description = "Payment processing with Stripe, PayPal, and Braintree for Armature framework"
 keywords = ["payments", "stripe", "paypal", "braintree", "ecommerce"]
 categories = ["web-programming", "api-bindings"]
@@ -15,13 +15,13 @@ categories = ["web-programming", "api-bindings"]
 # NOTE: `armature-core` was declared here but referenced nowhere in `src/` or
 # `tests/`; it has been removed rather than left to pull ~140 transitive crates
 # into every build of this crate.
-armature-log = { path = "../armature-log", version = "0" }
-tokio = { version = "1.52", features = ["rt-multi-thread", "sync", "time"] }
+armature-log = { version = "0.2" }
+tokio = { version = "1.53", features = ["rt-multi-thread", "sync", "time"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 async-trait = "0.1"
 thiserror = "2.0"
-uuid = { version = "1.23", features = ["v4", "serde"] }
+uuid = { version = "1.26", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "form"] }
 url = "2.5"
@@ -33,10 +33,10 @@ hmac = { version = "0.13", optional = true }
 sha2 = { version = "0.11", optional = true }
 sha1 = { version = "0.11", optional = true }
 hex = { version = "0.4", optional = true }
-base64 = { version = "0.22", optional = true }
-rust_decimal = { version = "1.42", features = ["serde"] }
+base64 = { version = "0.23", optional = true }
+rust_decimal = { version = "1.43", features = ["serde"] }
 secrecy = { version = "0.10", features = ["serde"] }
-quick-xml = { version = "0.37", features = ["serialize"], optional = true }
+quick-xml = { version = "0.42", features = ["serialize"], optional = true }
 
 [features]
 # All three providers are on by default because with `default = ["stripe"]` the
@@ -71,4 +71,4 @@ armature-testkit = { path = "../armature-testkit" }
 http = "1"
 # `test-util` provides the paused-clock runtime (`#[tokio::test(start_paused)]`)
 # the retry/backoff tests use to assert on delays without actually sleeping.
-tokio = { version = "1.52", features = ["rt-multi-thread", "macros", "sync", "time", "test-util"] }
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "sync", "time", "test-util"] }
