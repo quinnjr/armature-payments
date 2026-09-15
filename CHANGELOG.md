@@ -9,10 +9,7 @@ Earlier changes are recorded in the workspace [`CHANGELOG.md`](../CHANGELOG.md).
 
 ## [Unreleased]
 
-### Fixed
-
-- **Breaking:** `Money::from_decimal`/`from_float` are deprecated and now panic rather than returning zero. An amount that did not round-trip through `i64` silently became a charge of nothing, reported as success; `try_from_decimal`/`try_from_float` are the fallible replacements.
-- `Price::is_on_sale`/`discount_percent` check currency before comparing minor units.
+## [0.3.2] - 2026-09-15
 
 ### Changed
 
