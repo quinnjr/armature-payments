@@ -58,13 +58,25 @@ impl ScriptedProvider {
 
     fn next_result(&self) -> PaymentResult<()> {
         self.attempts.fetch_add(1, Ordering::SeqCst);
-        if self
-            .failures_remaining
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
-                n.checked_sub(1).or(Some(0))
-            })
-            .is_ok_and(|n| n > 0)
-        {
+        // Decrement while positive; fail this attempt if it was. (A plain
+        // compare-exchange loop: `fetch_update` is deprecated on current
+        // toolchains and its replacement is newer than the MSRV.)
+        let mut remaining = self.failures_remaining.load(Ordering::SeqCst);
+        let fail = loop {
+            if remaining == 0 {
+                break false;
+            }
+            match self.failures_remaining.compare_exchange(
+                remaining,
+                remaining - 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            ) {
+                Ok(_) => break true,
+                Err(current) => remaining = current,
+            }
+        };
+        if fail {
             return Err((self.error)());
         }
         Ok(())
